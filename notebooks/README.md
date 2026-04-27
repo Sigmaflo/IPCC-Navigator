@@ -3,7 +3,7 @@
 실험별 노트북 구성과 주요 산출물을 정리합니다.
 상세 실험 계획 및 결과는 `proposals/` 폴더의 IEP 문서를 참조하세요.
 
-> 최종 수정일: 2026-04-26
+> 최종 수정일: 2026-04-27
 
 ---
 
@@ -12,6 +12,7 @@
 - [IEP-1001: 단순 청킹](#iep-1001-단순-청킹-simple-chunking)
 - [IEP-1002: 구조 기반 청킹](#iep-1002-구조-기반-청킹-structural-chunking)
 - [IEP-1003: 의미 기반 청킹](#iep-1003-의미-기반-청킹-semantic-chunking)
+- [IEP-2001: 하이브리드 검색](#iep-2001-하이브리드-검색-bm25--vector)
 - [공통 의존성](#공통-의존성)
 - [관련 문서](#관련-문서)
 
@@ -237,6 +238,64 @@ Day 3 → Day 4
 
 ---
 
+## IEP-2001: 하이브리드 검색 (BM25 + Vector)
+
+벡터 단독 검색의 키워드·수치 매칭 취약성을 BM25로 보완하고, RRF 합산으로 검색 품질 개선을 시도했다.
+
+### 노트북 구성
+
+| 파일 | 내용 |
+| :--- | :--- |
+| `IEP2001_hybrid_search_experiment.ipynb` | BM25 인덱스 구축 · 하이브리드 검색 구현 · RAGAS 4지표 측정 · 벡터 단독 비교 |
+
+### 실험 설정
+
+| 항목 | 값 |
+| :--- | :--- |
+| 검색 방식 | BM25 + Vector RRF (k=60) |
+| 토크나이저 | kiwipiepy (형태소 분석) |
+| CANDIDATE_K | 10 |
+| SIMILARITY_THRESHOLD | 0.28 |
+| TOP_K | 3 |
+| ChromaDB 컬렉션 | `ipcc_1001_case3_v1` (506청크, IEP-1001과 동일) |
+| Judge LLM | `solar-pro3` (전 지표) |
+
+### 주요 결과 (2026-04-27)
+
+| 유형 | Context Recall | Context Precision | Faithfulness | Answer Relevancy |
+| :--- | :---: | :---: | :---: | :---: |
+| 사실 확인 | 0.7200 | **0.8611** | 0.4937 | 0.4829 |
+| 비교 | 0.3200 | 0.7633 | 0.2864 | 0.3401 |
+| 의견/예측 | 0.5100 | 0.8000 | 0.2352 | 0.4324 |
+| 범위 밖 | 0.5200 | 0.1467 | 0.0800 | 0.0650 |
+| **전체** | **0.5175** | **0.6406** | **0.2672** | **0.3301** |
+
+*judge: `solar-pro3` (전 지표)*
+
+**생존 편향 보정**
+
+| 지표 | 낙관적 (NaN 제외) | 유효 샘플 | 보수적 (전체 100개) |
+| :--- | :---: | :---: | :---: |
+| Faithfulness | 0.2672 | 66개 | **0.1764** |
+| Answer Relevancy | 0.3301 | 100개 | **0.3301** |
+
+**벡터 단독 vs 하이브리드 비교**
+
+| 지표 | 벡터 단독 (IEP-1001)† | 하이브리드 (IEP-2001) | 변화 |
+| :--- | :---: | :---: | :---: |
+| Context Recall | 0.8537 | 0.5175 | −0.3362 |
+| Context Precision | 0.6117 | **0.6406** | **+0.0289** |
+| Faithfulness | 0.2748 | 0.2672 | −0.0076 |
+| Answer Relevancy | 0.3409 | 0.3301 | −0.0108 |
+| 거절 수 | — | **17/100** | — |
+
+†IEP-1001은 llama judge 기준 / IEP-2001은 Solar judge 기준 — 수치 직접 비교 불가, 방향성 참고용
+
+> **Recall 급락 원인**: 거절 수 17/100. CANDIDATE_K=10 + threshold 0.28 조합이 borderline 질문을 과도하게 거절. Precision은 +0.0289로 유일하게 개선 — BM25 보완 효과는 확인됨.  
+> **다음 단계**: 거절 로직 조정(threshold 하향 또는 TOP_K 기준 필터) 후 재측정 예정.
+
+---
+
 ## 공통 의존성
 
 ```
@@ -266,3 +325,4 @@ tqdm
 - [IEP-1001: 단순 청킹 방식의 청크 크기 실험 및 RAGAS 4대 지표 측정](../proposals/IEP-1001-simplechunking.md)
 - [IEP-1002: 구조 기반 청킹 방식의 헤딩 탐지 실험 및 RAGAS 4대 지표 측정](../proposals/IEP-1002-structural-chunking.md)
 - [IEP-1003: 의미 기반 청킹 방식의 threshold 실험 및 RAGAS 4대 지표 측정](../proposals/IEP-1003-semantic-chunking.md)
+- [IEP-2001: 하이브리드 검색(BM25 + Vector)을 통한 검색 품질 개선](../proposals/IEP-2001-hybrid-search.md)
