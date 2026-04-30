@@ -1,0 +1,25 @@
+# 환경변수 — 절대 커밋 금지
+.env
+
+# ChromaDB 데이터 — GCS에서 관리
+chroma_db/
+**/chroma_db/
+chroma_cosine/
+**/chroma_cosine/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# IDE
+.cursor/
+.vscode/
+
+# 로컬 환경 전체 패키지 목록 — 환경마다 달라짐
+requirements_freeze.txt

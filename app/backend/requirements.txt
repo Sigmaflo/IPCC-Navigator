@@ -1,0 +1,29 @@
+# Web framework
+fastapi==0.115.12
+uvicorn[standard]==0.34.0
+
+# Pydantic (FastAPI 의존)
+pydantic==2.10.6
+
+# LLM (OpenAI 호환 — Colab 실측: openai 2.31.0)
+openai==2.31.0
+httpx==0.28.1
+
+# LangChain (1.x 계열로 통일 — langchain-core 의존성 충돌 방지)
+langchain==1.2.16
+langchain-chroma==1.1.0
+langchain-huggingface==1.2.2
+
+# Vector DB
+chromadb==1.5.8
+
+# Embedding
+sentence-transformers==3.4.1
+transformers==4.47.1
+torch==2.2.2
+
+# Env
+python-dotenv==1.1.0
+
+# Numeric
+numpy==1.26.4
