@@ -1,5 +1,4 @@
 import os
-import torch
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from openai import OpenAI
@@ -15,13 +14,9 @@ from config import (
     SIMILARITY_THRESHOLD,
 )
 
-# 디바이스 설정 (Mac M4: mps / Colab: cuda / 그 외: cpu)
-if torch.backends.mps.is_available():
-    device = "mps"
-elif torch.cuda.is_available():
-    device = "cuda"
-else:
-    device = "cpu"
+# 디바이스 설정 (환경변수로 주입, 기본값 cpu)
+# 로컬 Mac: DEVICE=mps / 컨테이너: 환경변수 없음 → cpu 자동 적용
+device = os.environ.get("DEVICE", "cpu")
 
 # 임베딩 모델 초기화
 embeddings = HuggingFaceEmbeddings(
