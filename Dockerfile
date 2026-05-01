@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # torch CPU only 먼저 설치 (GPU 버전 자동 설치 방지, 이미지 크기 최소화)
 RUN pip install --no-cache-dir \
-    torch==2.2.2 --index-url https://download.pytorch.org/whl/cpu
+    torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
 
 # 나머지 패키지 설치
 COPY app/backend/requirements.txt .

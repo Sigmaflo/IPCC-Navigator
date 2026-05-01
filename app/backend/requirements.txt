@@ -16,7 +16,7 @@ langchain-huggingface==1.2.2
 # Vector DB
 chromadb==1.5.8
  
-# Embedding (torch는 Dockerfile에서 CPU only로 별도 설치)
+# Embedding (torch는 Dockerfile에서 CPU only로 별도 설치, 2.6+ 필요 — CVE-2025-32434)
 sentence-transformers==3.4.1
  
 # Env
