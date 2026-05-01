@@ -77,8 +77,8 @@ FastAPI /chat
 | 벡터 DB | ChromaDB (cosine, 컬렉션: `ipcc_1001_case3_cosine_v1`, 506청크) |
 | 청킹 | chunk_size=1000, overlap=200 |
 | 유사도 임계값 | 0.40 (cosine 컬렉션 기준, 2026-04-30 확정) |
-| 인프라 | GCP Cloud Run, GCS (예정) |
-| 컨테이너 | Docker (예정) |
+| 인프라 | GCP Cloud Run, GCS |
+| 컨테이너 | Docker (linux/amd64, 2.62GB) |
 
 ---
 
@@ -184,7 +184,7 @@ IPCC-Navigator/
 │   │   ├── models.py        # Pydantic 스키마
 │   │   └── requirements.txt
 │   └── frontend/
-│       ├── app.py           # Streamlit UI (예정)
+│       ├── app.py           # Streamlit UI (IEP-4005·4006에서 구현 예정)
 │       └── requirements.txt
 ├── proposals/               # IEP 실험 문서
 ├── notebooks/               # 실험 노트북
@@ -207,8 +207,8 @@ IPCC-Navigator/
 | IEP-2001 | 하이브리드 검색 (BM25 + Vector RRF) | ✅ 완료 |
 | IEP-2002 | 리랭킹 (FlashRank) — 색인 전처리 필요로 중단 | ✅ 완료 |
 | IEP-4001 | FastAPI 서비스화 + 로컬 동작 확인 | ✅ 완료 |
-| IEP-4002 | Docker 컨테이너화 | ⏳ 예정 |
-| IEP-4003 | GCP Cloud Run 배포 | ⏳ 예정 |
+| IEP-4002 | Docker 컨테이너화 | ✅ 완료 |
+| IEP-4003 | GCP Cloud Run 배포 | ✅ 완료 |
 | IEP-1004 | 파서 교체 (Docling) | ⏳ Phase 3 |
 | IEP-3001 | LangGraph Agent | ⏳ Phase 4 |
 
@@ -225,10 +225,10 @@ langchain-chroma==1.1.0
 langchain-huggingface==1.2.2
 chromadb==1.5.8
 sentence-transformers==3.4.1
-transformers==4.47.1
-torch==2.2.2
+torch==2.6.0
 pydantic==2.10.6
 python-dotenv==1.1.0
+google-cloud-storage==2.19.0
 ```
 
 ---
@@ -246,7 +246,7 @@ python-dotenv==1.1.0
 
 ```
 Phase 1  청킹 실험 (IEP-1000~1003)    ✅ 완료
-Phase 2  배포 (IEP-4001~4003)         🔄 진행 중
+Phase 2  배포 (IEP-4001~4003)         ✅ 완료
 Phase 3  검색 개선 (IEP-2001~1004)    🔄 병행 진행
 Phase 4  LangGraph Agent              ⏳ 미착수
 ```
