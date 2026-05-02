@@ -2,7 +2,7 @@
 .env
 
 # Streamlit 시크릿 
-.streamlit/secrets.toml
+.streamlit/
 
 # ChromaDB 데이터 — GCS에서 관리
 chroma_db/
