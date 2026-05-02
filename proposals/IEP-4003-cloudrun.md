@@ -20,11 +20,11 @@ IEP-4002에서 Docker 이미지를 로컬에서 검증했다. 이 이미지를 G
 | 항목 | 값 |
 | :--- | :--- |
 | 프로젝트 ID | `ipcc-rag` |
-| 프로젝트 번호 | `917731718328` |
+| 프로젝트 번호 | `[PROJECT_NUMBER]` |
 | 리전 | `asia-northeast3` (서울) |
 | 이미지 레지스트리 | GCR (`gcr.io/ipcc-rag/ipcc-rag`) |
 | 서비스명 | `ipcc-rag` |
-| 서비스 URL | `https://ipcc-rag-917731718328.asia-northeast3.run.app` |
+| 서비스 URL | `https://[CLOUD_RUN_URL]` |
 
 ### 사전 준비
 
@@ -79,7 +79,7 @@ gcloud run deploy ipcc-rag \
   --max-instances 1 \
   --concurrency 10 \
   --cpu-throttling \
-  --set-env-vars "UPSTAGE_API_KEY=<key>,GCS_BUCKET=ipcc-rag-chromadb,CHROMA_DIR=/tmp/chroma_cosine,DEVICE=cpu"
+  --set-env-vars "UPSTAGE_API_KEY=<your_key>,GCS_BUCKET=[GCS_BUCKET],CHROMA_DIR=/tmp/chroma_cosine,DEVICE=cpu"
 ```
 
 ### 배포 옵션 설계 근거
@@ -129,7 +129,7 @@ gcloud run deploy ipcc-rag \
 
 ## 검증 결과
 
-**서비스 URL**: `https://ipcc-rag-917731718328.asia-northeast3.run.app`
+**서비스 URL**: `https://[CLOUD_RUN_URL]`
 
 | 테스트 | 결과 |
 | :--- | :--- |
@@ -142,16 +142,16 @@ gcloud run deploy ipcc-rag \
 
 ```bash
 # 헬스체크
-curl https://ipcc-rag-917731718328.asia-northeast3.run.app/health
+curl https://[CLOUD_RUN_URL]/health
 
 # 관련 질문 (한글 출력)
-curl -s -X POST https://ipcc-rag-917731718328.asia-northeast3.run.app/chat \
+curl -s -X POST https://[CLOUD_RUN_URL]/chat \
   -H "Content-Type: application/json" \
   -d '{"question": "기후변화의 주요 원인은 무엇인가요?"}' \
   | python3 -c "import sys,json; print(json.dumps(json.load(sys.stdin), ensure_ascii=False, indent=2))"
 
 # 범위 밖 질문
-curl -s -X POST https://ipcc-rag-917731718328.asia-northeast3.run.app/chat \
+curl -s -X POST https://[CLOUD_RUN_URL]/chat \
   -H "Content-Type: application/json" \
   -d '{"question": "오늘 날씨가 어때?"}' \
   | python3 -c "import sys,json; print(json.dumps(json.load(sys.stdin), ensure_ascii=False, indent=2))"
