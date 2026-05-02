@@ -37,80 +37,161 @@ client = OpenAI(
     base_url=UPSTAGE_BASE_URL,
 )
 
-SYSTEM_PROMPT = """당신은 IPCC AR6 종합보고서(한글 번역본) 전문 도우미입니다.
+# ── 시스템 프롬프트 ────────────────────────────────────────────────────────────
+
+SYSTEM_PROMPT_SIMPLE = """당신은 IPCC AR6 종합보고서(한글 번역본)를 일반 시민에게 쉽게 설명하는 도우미입니다.
 반드시 제공된 컨텍스트만 참고하여 답변하세요.
 컨텍스트에 없는 내용은 추측하지 말고 모른다고 답하세요.
-답변은 한국어로 작성하세요."""
+
+답변 작성 규칙:
+- 중학생도 이해할 수 있는 쉬운 언어를 사용하세요.
+- 전문 용어는 반드시 괄호 안에 간단한 설명을 덧붙이세요. 예: 온실가스(지구를 따뜻하게 만드는 기체)
+- 복잡한 수치보다는 비유나 일상적인 예시로 설명하세요.
+- 답변은 3~5문장 내외로 간결하게 작성하세요.
+- 답변은 한국어로 작성하세요."""
+
+SYSTEM_PROMPT_EXPERT = """당신은 IPCC AR6 종합보고서(한글 번역본) 전문 연구 도우미입니다.
+반드시 제공된 컨텍스트만 참고하여 답변하세요.
+컨텍스트에 없는 내용은 추측하지 말고 모른다고 답하세요.
+
+답변 작성 규칙:
+- 보고서의 원문 표현과 수치를 최대한 그대로 사용하세요.
+- 신뢰 수준(높은 신뢰도, 중간 신뢰도 등 IPCC 표현)을 포함하세요.
+- 관련 섹션이나 챕터 맥락을 언급하세요.
+- 연구·정책 활용에 적합한 정확하고 상세한 표현을 사용하세요.
+- 답변은 한국어로 작성하세요."""
+
+OUT_OF_SCOPE_ANSWER = (
+    "죄송합니다. 해당 질문은 IPCC AR6 보고서 범위를 벗어난 것 같습니다. "
+    "기후변화 관련 질문을 해주세요."
+)
 
 
-def query(question: str) -> dict:
+# ── 내부 유틸 ────────────────────────────────────────────────────────────────
+
+def _retrieve(question: str) -> tuple[list, list, list]:
     """
-    질문을 받아 RAG 파이프라인으로 답변과 출처를 반환합니다.
+    ChromaDB에서 검색 후 필터링된 결과를 반환합니다.
 
     Returns:
-        {
-            "answer": str,
-            "sources": [{"page": int, "preview": str, "source": str}, ...]
-        }
+        filtered_docs  : List[Document]
+        filtered_scores: List[float]  (similarity, 0~1)
+        sources        : List[dict]
     """
-    # cosine distance → similarity 변환: 1 - distance
-    # ipcc_1001_case3_cosine_v1 컬렉션 기준 (hnsw:space=cosine)
-    # 관련 질문: 0.62~0.66 / 범위 밖: 0.22~0.30
-    raw_results = vectorstore.similarity_search_with_score(
-        question, k=TOP_K
-    )
+    raw_results = vectorstore.similarity_search_with_score(question, k=TOP_K)
     results = [(doc, 1 - score) for doc, score in raw_results]
 
-    # Similarity Threshold 필터
-    filtered = [
-        (doc, score) for doc, score in results if score >= SIMILARITY_THRESHOLD
-    ]
+    filtered = [(doc, score) for doc, score in results if score >= SIMILARITY_THRESHOLD]
 
     if not filtered:
-        return {
-            "answer": (
-                "죄송합니다. 해당 질문은 IPCC AR6 보고서 범위를 벗어난 것 같습니다. "
-                "기후변화 관련 질문을 해주세요."
-            ),
-            "sources": [],
-        }
+        return [], [], []
 
-    # 컨텍스트 + 출처 구성
-    context_parts = []
+    filtered_docs = []
+    filtered_scores = []
     sources = []
 
-    for doc, _score in filtered:
-        # ChromaDB 메타데이터 키: page(int, 0-indexed), source(PDF 경로 전체)
+    for doc, score in filtered:
         page = doc.metadata.get("page", 0)
         source = doc.metadata.get("source", "")
         preview = doc.page_content[:200].replace("\n", " ")
 
-        context_parts.append(f"[페이지 {page + 1}]\n{doc.page_content}")
+        filtered_docs.append(doc)
+        filtered_scores.append(score)
         sources.append({
             "page": page + 1,
             "preview": preview,
-            "source": os.path.basename(source),  # 파일명만 추출
+            "source": os.path.basename(source),
         })
 
-    context = "\n\n---\n\n".join(context_parts)
+    return filtered_docs, filtered_scores, sources
 
-    # Solar API 호출
+
+def _build_context(docs: list) -> str:
+    parts = []
+    for doc in docs:
+        page = doc.metadata.get("page", 0)
+        parts.append(f"[페이지 {page + 1}]\n{doc.page_content}")
+    return "\n\n---\n\n".join(parts)
+
+
+def _call_llm(system_prompt: str, context: str, question: str) -> str:
     response = client.chat.completions.create(
         model=LLM_MODEL,
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": f"컨텍스트:\n{context}\n\n질문: {question}",
-            },
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"컨텍스트:\n{context}\n\n질문: {question}"},
         ],
     )
-
     answer = response.choices[0].message.content
     if "</think>" in answer:
         answer = answer.split("</think>")[-1].strip()
+    return answer
+
+
+def _calc_trust(filtered_scores: list) -> dict:
+    """신뢰도 3지표 계산 (IEP-4006)"""
+    relevance_score = round(sum(filtered_scores) / len(filtered_scores), 4)
+    coverage_score = round(len(filtered_scores) / TOP_K, 4)
+    return {
+        "relevance_score": relevance_score,
+        "coverage_score": coverage_score,
+        "is_in_scope": True,
+    }
+
+
+# ── 공개 함수 ────────────────────────────────────────────────────────────────
+
+def query_simple(question: str) -> dict:
+    """
+    일반인용 답변 + 신뢰도 지표 반환 (기본 /chat 엔드포인트용).
+
+    Returns:
+        {
+            "answer_simple": str,
+            "sources": List[dict],
+            "trust": {"relevance_score": float, "coverage_score": float, "is_in_scope": bool}
+        }
+    """
+    docs, scores, sources = _retrieve(question)
+
+    if not docs:
+        return {
+            "answer_simple": OUT_OF_SCOPE_ANSWER,
+            "sources": [],
+            "trust": {
+                "relevance_score": 0.0,
+                "coverage_score": 0.0,
+                "is_in_scope": False,
+            },
+        }
+
+    context = _build_context(docs)
+    answer_simple = _call_llm(SYSTEM_PROMPT_SIMPLE, context, question)
+    trust = _calc_trust(scores)
 
     return {
-        "answer": answer,
+        "answer_simple": answer_simple,
         "sources": sources,
+        "trust": trust,
     }
+
+
+def query_expert(question: str) -> dict:
+    """
+    전문가용 답변 반환 (전문가 탭 버튼 클릭 시 /chat/expert 엔드포인트용).
+    검색을 재실행합니다 (컨텍스트 재활용 대신 단순성 우선).
+
+    Returns:
+        {
+            "answer": str
+        }
+    """
+    docs, scores, _ = _retrieve(question)
+
+    if not docs:
+        return {"answer": OUT_OF_SCOPE_ANSWER}
+
+    context = _build_context(docs)
+    answer = _call_llm(SYSTEM_PROMPT_EXPERT, context, question)
+
+    return {"answer": answer}
