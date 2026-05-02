@@ -1,0 +1,5 @@
+# Streamlit UI
+streamlit==1.45.0
+
+# HTTP 클라이언트
+requests==2.33.1
