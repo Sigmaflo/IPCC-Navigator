@@ -1,5 +1,8 @@
-# 환경변수 — 절대 커밋 금지
+# 환경변수
 .env
+
+# Streamlit 시크릿 
+.streamlit/secrets.toml
 
 # ChromaDB 데이터 — GCS에서 관리
 chroma_db/
