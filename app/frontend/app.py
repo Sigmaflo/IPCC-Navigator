@@ -104,6 +104,7 @@ html, body, [class*="css"] {
 .tag-low  { background: #fde8e8; color: #7a2020; }
 .tag-in   { background: #d1f0e0; color: #1a5c38; }
 .tag-out  { background: #fde8e8; color: #7a2020; }
+.trust-desc { font-size: 0.72rem; color: #5a7a6a; font-style: italic; }
 
 /* 출처 카드 */
 .source-card {
@@ -294,13 +295,23 @@ if st.session_state.result:
 
     # ── 신뢰도 지표 (IEP-4006) ────────────────────────────────────────────────
 
-    def _label(score: float) -> str:
+    def _label(score: float, kind: str = "") -> str:
+        descs = {
+            "high": {"relevance": "근거가 질문과 잘 일치합니다", "coverage": "충분한 출처가 검색되었습니다"},
+            "mid":  {"relevance": "일부 불확실성이 있습니다", "coverage": "일부 출처만 검색되었습니다"},
+            "low":  {"relevance": "근거가 약합니다. 답변을 주의하여 해석하세요", "coverage": "관련 출처가 거의 없습니다"},
+        }
         if score >= 0.7:
-            return '<span class="trust-tag tag-high">높음</span>'
+            desc = descs["high"].get(kind, "")
+            tag = '<span class="trust-tag tag-high">높음</span>'
         elif score >= 0.4:
-            return '<span class="trust-tag tag-mid">중간</span>'
+            desc = descs["mid"].get(kind, "")
+            tag = '<span class="trust-tag tag-mid">중간</span>'
         else:
-            return '<span class="trust-tag tag-low">낮음</span>'
+            desc = descs["low"].get(kind, "")
+            tag = '<span class="trust-tag tag-low">낮음</span>'
+        desc_html = f'<span class="trust-desc">{desc}</span>' if desc else ""
+        return f"{tag} {desc_html}"
 
     rel = trust.get("relevance_score", 0.0)
     cov = trust.get("coverage_score", 0.0)
@@ -319,13 +330,13 @@ if st.session_state.result:
         <span class="trust-label">근거 일치도</span>
         <div class="trust-bar-wrap"><div class="trust-bar" style="width:{rel*100:.0f}%"></div></div>
         <span class="trust-num">{rel:.2f}</span>
-        {_label(rel)}
+        {_label(rel, "relevance")}
     </div>
     <div class="trust-row">
         <span class="trust-label">출처 충분성</span>
         <div class="trust-bar-wrap"><div class="trust-bar" style="width:{cov*100:.0f}%"></div></div>
         <span class="trust-num">{cov:.2f}</span>
-        {_label(cov)}
+        {_label(cov, "coverage")}
     </div>
     <div class="trust-row">
         <span class="trust-label">범위 내 여부</span>
