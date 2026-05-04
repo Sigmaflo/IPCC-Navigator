@@ -10,7 +10,7 @@ from config import DAILY_REQUEST_LIMIT, LLM_MODEL, CHROMA_COLLECTION, SIMILARITY
 
 # 일일 요청 카운터 (인메모리, Cloud Run 재시작 시 초기화)
 # /chat과 /chat/expert 각각 카운트 (1 질문 세션 = 최대 2 카운트)
-_counter: dict = {"date": str(date.today()), "count": 0}
+_counter: dict = {"date": str(date.today()), "count": 0, "rejection": 0}
 
 
 def _download_chromadb():
@@ -70,7 +70,9 @@ def _check_and_increment() -> bool:
     if _counter["date"] != today:
         _counter["date"] = today
         _counter["count"] = 0
+        _counter["rejection"] = 0
     if _counter["count"] >= DAILY_REQUEST_LIMIT:
+        _counter["rejection"] += 1
         return False
     _counter["count"] += 1
     return True
@@ -80,10 +82,15 @@ def _check_and_increment() -> bool:
 
 @app.get("/health")
 def health():
+    rejection = _counter["rejection"]
+    total = _counter["count"] + rejection
+    rate = f"{rejection / total * 100:.0f}%" if total > 0 else "0%"
     return {
         "status": "ok",
         "requests_today": _counter["count"],
         "limit": DAILY_REQUEST_LIMIT,
+        "rejection_count": rejection,
+        "rejection_rate": rate,
     }
 
 
