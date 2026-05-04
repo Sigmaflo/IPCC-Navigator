@@ -123,18 +123,33 @@ def _build_context(docs: list) -> str:
     return "\n\n---\n\n".join(parts)
 
 
+FALLBACK_ANSWER = (
+    "죄송합니다. 현재 답변 생성에 실패했습니다. "
+    "잠시 후 다시 시도해주세요."
+)
+
+
 def _call_llm(system_prompt: str, context: str, question: str) -> str:
-    response = client.chat.completions.create(
-        model=LLM_MODEL,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"컨텍스트:\n{context}\n\n질문: {question}"},
-        ],
-    )
-    answer = response.choices[0].message.content
-    if "</think>" in answer:
-        answer = answer.split("</think>")[-1].strip()
-    return answer
+    for attempt in range(2):
+        try:
+            response = client.chat.completions.create(
+                model=LLM_MODEL,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"컨텍스트:\n{context}\n\n질문: {question}"},
+                ],
+                timeout=30,
+            )
+            answer = response.choices[0].message.content
+            if "</think>" in answer:
+                answer = answer.split("</think>")[-1].strip()
+            return answer
+        except Exception as e:
+            if attempt == 0:
+                print(f"[rag] LLM 호출 실패 (1차 시도): {e} — 재시도 중...")
+            else:
+                print(f"[rag] LLM 호출 실패 (2차 시도): {e} — fallback 반환")
+    return FALLBACK_ANSWER
 
 
 def _calc_trust(filtered_scores: list) -> dict:
