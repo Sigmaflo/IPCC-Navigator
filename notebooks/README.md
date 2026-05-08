@@ -3,7 +3,7 @@
 실험별 노트북 구성과 주요 산출물을 정리합니다.
 상세 실험 계획 및 결과는 `proposals/` 폴더의 IEP 문서를 참조하세요.
 
-> 최종 수정일: 2026-04-30
+> 최종 수정일: 2026-05-08
 
 ---
 
@@ -210,50 +210,51 @@ Day 3 → Day 4
 | `IEP2001_hybrid_search_experiment.ipynb` | BM25 인덱스 구축 · 하이브리드 검색(방법C) · RAGAS 4지표 측정 |
 | `IEP2001_1_hybrid_reranking_fix.ipynb` | 거절 로직 재조정(방법E, threshold=0.20) · RAGAS 재측정 |
 | `IEP2001_2_hybrid_method_f.ipynb` | threshold 제거(방법F) · Recall upper bound 측정 · 방법E 트레이드오프 정량화 |
+| `IEP2001_3_hybrid_method_E_cosine_gh.ipynb` | 방법E cosine 컬렉션 재실험 · 배포 환경과 측정 조건 통일 · 전 지표 개선 확인 |
 
 ### 실험 설정
 
-| 항목 | 방법C (IEP-2001) | 방법E (IEP-2001.1) | 방법F (IEP-2001.2) |
-| :--- | :---: | :---: | :---: |
-| SIMILARITY_THRESHOLD | 0.28 | **0.20** | **없음** |
-| threshold 적용 기준 | CANDIDATE_K=10 전체 | CANDIDATE_K=10 전체 | — |
-| TOP_K | 3 | 3 | 3 |
-| BM25_CANDIDATE_K | 10 | 10 | 10 |
-| RRF_K | 60 | 60 | 60 |
-| 토크나이저 | kiwipiepy | kiwipiepy | kiwipiepy |
-| ChromaDB 컬렉션 | `ipcc_1001_case3_v1` (506청크) | ← 동일 | ← 동일 |
-| Judge LLM | `solar-pro3` | `solar-pro3` | `solar-pro3` |
+| 항목 | 방법C | 방법E (L2) | 방법F | **방법E cosine** |
+| :--- | :---: | :---: | :---: | :---: |
+| ChromaDB 컬렉션 | L2 | L2 | L2 | **cosine** |
+| SIMILARITY_THRESHOLD | 0.28 | 0.20 | 없음 | **0.20** |
+| TOP_K | 3 | 3 | 3 | **10** |
+| BM25_CANDIDATE_K | 10 | 10 | 10 | 10 |
+| RRF_K | 60 | 60 | 60 | 60 |
+| 토크나이저 | kiwipiepy | kiwipiepy | kiwipiepy | kiwipiepy |
+| Judge LLM | solar-pro3 | solar-pro3 | solar-pro3 | solar-pro3 |
 
 ### 주요 결과 (Solar judge 기준, 전 지표 통일)
 
 | 단계 | Context Recall | Context Precision | Faithfulness (보수) | Answer Relevancy | 거절 |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | IEP-1001 Solar v2 (벡터 단독) | 0.6549 | 0.5608 | 0.1424 | 0.4075 | — |
-| **방법C** (thr=0.28) | 0.5175 | 0.6406 | 0.1764 | 0.3301 | 17/100 |
-| **방법E** (thr=0.20) | 0.5600 | **0.6835** | 0.1792 | 0.3537 | 10/100 |
-| **방법F** (thr 없음) | **0.6835** | 0.5859 | 0.1600 | **0.4575** | 0/100 |
+| 방법C (thr=0.28, L2) | 0.5175 | 0.6406 | 0.1764 | 0.3301 | 17/100 |
+| 방법E (thr=0.20, L2) | 0.5600 | **0.6835** | 0.1792 | 0.3537 | 10/100 |
+| 방법F (thr 없음, L2) | 0.6835 | 0.5859 | 0.1600 | 0.4575 | 0/100 |
+| **방법E cosine (thr=0.20)** ✅ | **0.7609** | **0.6125** | **0.2017** | **0.5112** | **0/100** |
 
-> **방법E vs 방법F 트레이드오프**: threshold 제거 시 Recall +0.1235, Precision −0.0976. threshold=0.20은 두 지표의 균형점이다.  
-> **배포 채택**: 방법E (threshold=0.20) — 서비스 거절 응답 필요, Precision 우위  
-> **Recall upper bound**: 방법F (threshold 없음) — 벡터 단독(0.6549)을 넘어선 0.6835 확인
+> **방법E cosine 핵심 발견**: cosine 컬렉션 + TOP_K=10으로 전 지표 개선. 비교 유형 Faithfulness 0.1429 → 0.6944 (+0.5515) — BM25의 키워드 정밀도 효과.  
+> **배포 반영 여부**: 미결 (rag.py 수정 + Cloud Run 재배포 필요)
 
-### 생존 편향 보정 (방법E)
+### 유형별 상세 (방법E cosine, 2026-05-08)
+
+| 유형 | Context Recall | Context Precision | Faithfulness | Answer Relevancy |
+| :--- | :---: | :---: | :---: | :---: |
+| 사실 확인 | 0.9600 | 0.7133 | 0.6979 | 0.7269 |
+| 비교 | 0.6400 | 0.6842 | 0.6944 | 0.4967 |
+| 의견/예측 | 0.8681 | 0.7716 | 0.3333 | 0.6104 |
+| 범위 밖 | 0.5800 | 0.2929 | 0.2130 | 0.2109 |
+| **전체** | **0.7609** | **0.6125** | **0.4690** | **0.5112** |
+
+### 생존 편향 보정 (방법E cosine)
 
 | 지표 | 낙관적 (NaN 제외) | 유효 샘플 | 보수적 (전체 100개) |
 | :--- | :---: | :---: | :---: |
-| Context Recall | 0.5600 | 99개 | **0.5544** |
-| Context Precision | 0.6835 | 100개 | **0.6835** |
-| Faithfulness | 0.2597 | 69개 | **0.1792** |
-| Answer Relevancy | 0.3537 | 100개 | **0.3537** |
+| Faithfulness | 0.4690 | 43개 | **0.2017** |
+| Answer Relevancy | 0.5112 | 100개 | **0.5112** |
 
-### 생존 편향 보정 (방법F)
-
-| 지표 | 낙관적 (NaN 제외) | 유효 샘플 | 보수적 (전체 100개) |
-| :--- | :---: | :---: | :---: |
-| Context Recall | 0.6835 | 99개 | **0.6767** |
-| Context Precision | 0.5859 | 100개 | **0.5859** |
-| Faithfulness | 0.3200 | 50개 | **0.1600** |
-| Answer Relevancy | 0.4575 | 100개 | **0.4575** |
+> Faithfulness NaN 57개: `max_tokens=512` 부족 원인(`LLMDidNotFinishException`). 다음 실험부터 `max_tokens=1024` 적용.
 
 ---
 
@@ -292,6 +293,7 @@ Day 3 → Day 4
 langchain-community
 langchain-huggingface
 langchain-openai
+langchain-chroma==0.1.4
 langchain-text-splitters
 langchain-ollama
 langchain-core
@@ -308,7 +310,7 @@ tqdm
 
 > Phase 1 (청킹 실험): `langchain-ollama`, `langchain-experimental` 필요  
 > Phase 2 (Solar 재측정): `langchain-openai`, `openai` 필요 (버전 고정 없음)  
-> Phase 3 (하이브리드 검색): `rank-bm25`, `kiwipiepy` 추가 필요
+> Phase 3 (하이브리드 검색): `rank-bm25`, `kiwipiepy`, `langchain-chroma==0.1.4` 추가 필요
 
 ---
 
@@ -322,4 +324,5 @@ tqdm
 - [IEP-2001: 하이브리드 검색(BM25 + Vector)을 통한 검색 품질 개선](../proposals/IEP-2001-hybrid-search.md)
 - [IEP-2001.1: 하이브리드 검색 거절 로직 재조정](../proposals/IEP-2001-1-hybrid-threshold.md)
 - [IEP-2001.2: 하이브리드 검색 방법 F (threshold 제거)](../proposals/IEP-2001-2-hybrid-method-f.md)
+- [IEP-2001.3: 하이브리드 방법E cosine 컬렉션 재실험](../proposals/IEP-2001-3-hybrid-method-e-cosine.md)
 - [IEP-2002: 리랭킹(FlashRank)을 통한 검색 품질 개선 시도](../proposals/IEP-2002-reranking.md)
